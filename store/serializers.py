@@ -1,7 +1,8 @@
 from rest_framework import serializers
-from .models import Category, Product, Comment
+from .models import Cart, CartItem, Category, Product, Comment
 from decimal import Decimal
 from django.utils.text import slugify
+
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -50,4 +51,57 @@ class CommentSerializer(serializers.ModelSerializer):
         return Comment.objects.create(product_id=product_id, **validated_data)
 
 
+class CartProductSeriallizer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'price']
+
+
+class UpdateCartItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartItem
+        fields = ['quantity',]
+
+
+class AddCartItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartItem
+        fields = ['id', 'product', 'quantity']
     
+    def create(self, validated_data):
+        cart_id = self.context['cart_pk']
+        product = validated_data.get('product')
+        quantity = validated_data.get('quantity')
+        try:
+            cart_item = CartItem.objects.get(cart_id=cart_id, product_id=product)
+            cart_item.quantity += quantity
+            cart_item.save()
+        except CartItem.DoesNotExist:
+            cart_item = CartItem.objects.create(cart_id=cart_id)
+        
+        self.instance = cart_item
+        return cart_item
+        
+class CartItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartItem
+        fields = ['id', 'product', 'quantity', 'item_total']
+
+    product = CartProductSeriallizer()
+    item_total = serializers.SerializerMethodField()
+
+    def get_item_total(self, cart_item):
+        return cart_item.quantity * cart_item.product.price
+
+
+class CartSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cart
+        fields = ['id', 'items', 'total_price']
+        read_only_fields = ['id',]
+    
+    items = CartItemSerializer(many=True, read_only=True)
+    total_price = serializers.SerializerMethodField()
+
+    def get_total_price(self, cart):
+        return sum([item.quantity * item.product.price for item in cart.items.all()])

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, Order, Customer, Comment, OrderItem
+from .models import Cart, CartItem, Product, Order, Customer, Comment, OrderItem
 from django.db.models import Count
 from django.utils.html import format_html
 from django.urls import reverse
@@ -118,3 +118,16 @@ class CustomerAdmin(admin.ModelAdmin):
 class CommentAdmin(admin.ModelAdmin):
     list_display = ['name', 'body', 'status']
     autocomplete_fields = ['product',]
+
+
+class CartItemInline(admin.TabularInline):
+    model = CartItem
+    fields = ['id', 'product', 'quantity']
+    extra = 0
+    min_num = 1
+
+
+@admin.register(Cart)
+class CartAdmin(admin.ModelAdmin):
+    list_display = ['id', 'created_at']
+    inlines = [CartItemInline]

@@ -1,14 +1,17 @@
 from django.shortcuts import get_object_or_404
+from django.db.models import Prefetch
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, DestroyModelMixin
+from rest_framework.viewsets import GenericViewSet
 from rest_framework import status
 
 from django_filters.rest_framework import DjangoFilterBackend
 
 from store.filters import ProductFilter
-from .serializers import CategorySerializer, CommentSerializer, ProductSerializer
-from .models import Category, Product, Comment
+from .serializers import AddCartItemSerializer, CartItemSerializer, CartSerializer, CategorySerializer, CommentSerializer, ProductSerializer, UpdateCartItemSerializer
+from .models import Cart, CartItem, Category, OrderItem, Product, Comment
 from .paginations import DefaultPagination
 
 
@@ -55,3 +58,32 @@ class CommentViewSet(ModelViewSet):
 
     def get_serializer_context(self):
         return {"product_pk": self.kwargs['product_pk']}
+
+
+class CartItemViewSet(ModelViewSet):
+
+    http_method_names = ['get', 'post', 'patch', 'delete']
+    lookup_value_regex = "[0-9 a-f A-f]{8}\-?[0-9 a-f A-f]{4}\-?[0-9 a-f A-f]{4}\-?[0-9 a-f A-f]{4}\-?[0-9 a-f A-f]{12}"
+    def get_queryset(self):
+        cart_pk = self.kwargs['cart_pk']
+        return CartItem.objects.select_related('product').filter(cart_id=cart_pk).all()
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return AddCartItemSerializer
+        elif self.request.method == 'PATCH':
+            return UpdateCartItemSerializer
+        return CartItemSerializer
+   
+    def get_serializer_context(self):
+        return {'cart_pk': self.kwargs['cart_pk']}
+
+
+class CartViewSet(CreateModelMixin, RetrieveModelMixin, DestroyModelMixin,GenericViewSet):
+    serializer_class = CartSerializer
+    queryset = Cart.objects.prefetch_related(
+        Prefetch(
+            'items',
+            queryset=CartItem.objects.select_related('product')
+        )
+    ).all()
