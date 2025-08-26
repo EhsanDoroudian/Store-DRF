@@ -61,9 +61,8 @@ class CommentViewSet(ModelViewSet):
 
 
 class CartItemViewSet(ModelViewSet):
-
     http_method_names = ['get', 'post', 'patch', 'delete']
-    lookup_value_regex = "[0-9 a-f A-f]{8}\-?[0-9 a-f A-f]{4}\-?[0-9 a-f A-f]{4}\-?[0-9 a-f A-f]{4}\-?[0-9 a-f A-f]{12}"
+
     def get_queryset(self):
         cart_pk = self.kwargs['cart_pk']
         return CartItem.objects.select_related('product').filter(cart_id=cart_pk).all()
@@ -81,6 +80,8 @@ class CartItemViewSet(ModelViewSet):
 
 class CartViewSet(CreateModelMixin, RetrieveModelMixin, DestroyModelMixin,GenericViewSet):
     serializer_class = CartSerializer
+    lookup_value_regex = "[0-9 a-f A-f]{8}\-?[0-9 a-f A-f]{4}\-?[0-9 a-f A-f]{4}\-?[0-9 a-f A-f]{4}\-?[0-9 a-f A-f]{12}"
+    
     queryset = Cart.objects.prefetch_related(
         Prefetch(
             'items',

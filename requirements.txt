@@ -7,3 +7,5 @@ tdqm==4.67.1
 django-debug-toolbar==5.2.0
 djangorestframework==3.16.0
 drf_nested_routers==0.94.2
+djoser==2.3.3
+djangorestframework_simplejwt==5.5.1
