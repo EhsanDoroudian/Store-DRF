@@ -5,14 +5,17 @@ from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, DestroyModelMixin
 from rest_framework.viewsets import GenericViewSet
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework import status
 
 from django_filters.rest_framework import DjangoFilterBackend
 
 from store.filters import ProductFilter
-from .serializers import AddCartItemSerializer, CartItemSerializer, CartSerializer, CategorySerializer, CommentSerializer, ProductSerializer, UpdateCartItemSerializer
-from .models import Cart, CartItem, Category, OrderItem, Product, Comment
+from .serializers import AddCartItemSerializer, CartItemSerializer, CartSerializer, CategorySerializer, CommentSerializer, CustomerSerializer, ProductSerializer, UpdateCartItemSerializer
+from .models import Cart, CartItem, Category, Customer, OrderItem, Product, Comment
 from .paginations import DefaultPagination
+from .permissions import IsAdminOrReadOnly, SendPrivateEmailToCustomerPermission, CustomDjangoModelPermissions
 
 
 class ProductViewSet(ModelViewSet):
@@ -23,6 +26,7 @@ class ProductViewSet(ModelViewSet):
     filterset_class = ProductFilter
     OrderingFilter = ['name', 'price', 'inventory',]
     pagination_class = DefaultPagination
+    permission_classes = [CustomDjangoModelPermissions]
 
     def get_serializer_context(self):
         return {'request': self.request}
@@ -37,16 +41,16 @@ class ProductViewSet(ModelViewSet):
     
 
 class CategoryViewSet(ModelViewSet):
-        queryset = Category.objects.prefetch_related('products').select_related('top_product').all()
-        serializer_class = CategorySerializer
-
-        def destroy(self, request, pk):
-            category = get_object_or_404(Category.objects.prefetch_related('products'), pk=pk)
-            if category.products.count() > 0:
-                return Response({'error': "You can not delete this category. it is category of a product.",},
-                    status=status.HTTP_405_METHOD_NOT_ALLOWED)
-            category.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+    queryset = Category.objects.prefetch_related('products').select_related('top_product').all()
+    serializer_class = CategorySerializer
+    permission_classes = [IsAdminOrReadOnly]
+    def destroy(self, request, pk):
+        category = get_object_or_404(Category.objects.prefetch_related('products'), pk=pk)
+        if category.products.count() > 0:
+            return Response({'error': "You can not delete this category. it is category of a product.",},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        category.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CommentViewSet(ModelViewSet):
@@ -88,3 +92,28 @@ class CartViewSet(CreateModelMixin, RetrieveModelMixin, DestroyModelMixin,Generi
             queryset=CartItem.objects.select_related('product')
         )
     ).all()
+
+
+class CustomerViewSet(ModelViewSet):
+    serializer_class = CustomerSerializer
+    queryset = Customer.objects.all()
+    permission_classes = [IsAdminUser]
+
+    @action(detail=False, methods=['GET', 'PUT'], permission_classes=[IsAuthenticated])
+    def me(self, request):
+        user_id = request.user.id
+        customer = Customer.objects.get(user_id=user_id)
+
+        if request.method == 'GET':
+            serializer = CustomerSerializer(customer)
+            return Response(serializer.data)
+
+        elif request.method == 'PUT':
+            serializer = CustomerSerializer(instance=customer, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+
+    @action(detail=True, permission_classes=[SendPrivateEmailToCustomerPermission])
+    def send_private_email(self, request, pk):
+        return Response(f"Sending email to customer {pk}")

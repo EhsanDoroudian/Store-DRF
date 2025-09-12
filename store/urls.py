@@ -1,4 +1,3 @@
-from django.urls import path, include
 from rest_framework_nested import routers
 from . import views
 
@@ -6,7 +5,9 @@ from . import views
 router = routers.DefaultRouter()
 router.register('products', views.ProductViewSet, basename='product')
 router.register('categories', views.CategoryViewSet, basename='category')
-router.register('carts', views.CartViewSet)
+router.register('carts', views.CartViewSet, basename='cart')
+router.register('customers', views.CustomerViewSet, basename='customer')
+
 
 products_router = routers.NestedDefaultRouter(parent_router=router, parent_prefix='products', lookup='product')
 products_router.register('comments', views.CommentViewSet, basename='product-comments')
